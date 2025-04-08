@@ -1,5 +1,6 @@
 #include "stm32f10x.h"
 #include "usart1.h"
+#include "usart2.h"
 
 #if USART1_RX_ENABLE
 char Usart1_RxCompleted = 0;
@@ -73,13 +74,14 @@ void u1_printf(char* fmt, ...)
 }
 
 // 原始数据发送
-void u1_TxData(unsigned char *data)
-{
-    uint16_t len = data[0] * 256 + data[1];
-    for(uint16_t i = 0; i < len; i++)
-    {
-        USART_SendData(USART1, data[i+2]);
-        while(USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
+void u1_TxData(unsigned char *data, uint16_t length) {
+	//USART_SendData(USART1,*data);
+    for(uint16_t i = 0; i < length; i++) {
+        while((USART1->SR & 0X40) == 0); // 等待发送寄存器空
+        USART1->DR = data[i];
+		u2_printf("data[]=%x\r\n",data[i]);
     }
+	
 }
+
 

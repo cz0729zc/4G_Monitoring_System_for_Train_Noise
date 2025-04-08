@@ -41,6 +41,7 @@
 ".\objects\lm2904.o"
 ".\objects\oled.o"
 ".\objects\iic.o"
+".\objects\wh_4g.o"
 ".\objects\main.o"
 ".\objects\stm32f10x_it.o"
 --strict --scatter ".\Objects\列车噪声在线监测系统.sct"

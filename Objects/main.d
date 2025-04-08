@@ -36,3 +36,10 @@
 .\objects\main.o: .\Hardware\24c02.h
 .\objects\main.o: .\Hardware\iic.h
 .\objects\main.o: .\Hardware\keys.h
+.\objects\main.o: .\Hardware\WH_4G.h
+.\objects\main.o: .\System\usart\usart3.h
+.\objects\main.o: D:\Development_Tool\Keil5\ARM\ARMCC\Bin\..\include\stdio.h
+.\objects\main.o: D:\Development_Tool\Keil5\ARM\ARMCC\Bin\..\include\stdarg.h
+.\objects\main.o: D:\Development_Tool\Keil5\ARM\ARMCC\Bin\..\include\string.h
+.\objects\main.o: .\System\usart\usart2.h
+.\objects\main.o: .\System\usart\usart1.h

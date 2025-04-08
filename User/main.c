@@ -7,6 +7,9 @@
 #include "24c02.h"
 #include "iic.h"
 #include "keys.h"
+#include "WH_4G.h"
+#include "usart2.h"
+#include "usart1.h"
 
 #define STORAGE_INTERVAL 1      // 存储间隔1秒
 #define MAX_STORAGE_ADDR 256    // 24C02最大地址
@@ -28,8 +31,11 @@ typedef struct {
 
 uint16_t storageAddr = 0;    // 当前存储地址
 uint8_t lastSecond = 0;     // 上次存储的秒数
+uint8_t lastMinute = 0xFF;  // 上次发送的分钟（初始化为无效值）
 float noise_threshold = 80.0; // 噪音阈值
 uint8_t view_history_mode = 0; // 0:正常模式 1:查看历史模式
+uint8_t time_set_mode = 0;    // 0:正常模式 1:时间设置模式
+uint8_t adjustment_field = 0; // 0:时 1:分 2:秒
 uint16_t history_index = 0; // 当前查看的历史记录索引
 StorageData history_data[MAX_HISTORY_ITEMS]; // 历史数据缓存
 
@@ -37,6 +43,7 @@ StorageData history_data[MAX_HISTORY_ITEMS]; // 历史数据缓存
 void ReadAllHistoryData(void);
 void DisplayHistoryData(uint16_t index);
 void DisplayMainScreen(void);
+void UpdateTimeSettingDisplay(void);
 
 int main(void)
 {
@@ -44,7 +51,9 @@ int main(void)
     OLED_Init();            // OLED初始化
     MyRTC_Init();           // RTC初始化
     IIC_Init();             // IIC初始化
-    LM2904_Init();          // 噪音传感器初始化
+    LM2904_Init();          // 噪音传感器初始
+    Usart1_Init(115200);
+    Usart2_Init(9600);
     BEEP_Init();            // 蜂鸣器初始化
     Key_Init();             // 按键初始化
     
@@ -58,12 +67,11 @@ int main(void)
     
     /* 显示主界面 */
     DisplayMainScreen();
-    
-    while (1)
-    {
+    while (1) 
+    {        
         Key_Value key = Key_Scan(); // 扫描按键
         
-        if(!view_history_mode) // 正常模式
+        if(!view_history_mode && !time_set_mode) // 正常模式
         {
             /* 读取当前时间 */
             MyRTC_ReadTime();   // 更新MyRTC_Time数组
@@ -76,11 +84,17 @@ int main(void)
             OLED_ShowNum(2, 9, MyRTC_Time[4], 2);   // 分
             OLED_ShowNum(2, 12, MyRTC_Time[5], 2);  // 秒
             
-            /* 读取并显示噪音值 */
+           /* 读取并显示噪音值 */
             float noise = ConvertToDecibel(LM2904_ReadValue());
             OLED_ShowNum(3, 7, (uint16_t)noise, 3);
             OLED_ShowString(3, 10, "dB");
             
+            /* 每分钟发送一次数据 */
+            if(MyRTC_Time[4] != lastMinute) { // 分钟变化时发送
+                Wire4G_sendData(0x00, (uint16_t)noise);
+                lastMinute = MyRTC_Time[4];
+            }
+
             /* 显示阈值 */
             OLED_ShowNum(4, 7, (uint16_t)noise_threshold, 3);
             
@@ -146,7 +160,50 @@ int main(void)
                     DisplayHistoryData(history_index);
                     break;
                     
-                case KEY_EXIT: // 在正常模式下无作用
+                case KEY_EXIT: // 进入时间设置模式
+                    time_set_mode = 1;
+                    adjustment_field = 0;
+                    OLED_Clear();
+                    OLED_ShowString(1, 1, "Time Setting:");
+                    UpdateTimeSettingDisplay();
+                    break;
+                    
+                default:
+                    break;
+            }
+        }
+        else if(time_set_mode) // 时间设置模式
+        {
+            /* 按键处理 */
+            switch(key)
+            {
+                case KEY_ADD: // 增加当前字段值
+                    switch(adjustment_field) {
+                        case 0: MyRTC_Time[3] = (MyRTC_Time[3] + 1) % 24; break;
+                        case 1: MyRTC_Time[4] = (MyRTC_Time[4] + 1) % 60; break;
+                        case 2: MyRTC_Time[5] = (MyRTC_Time[5] + 1) % 60; break;
+                    }
+                    UpdateTimeSettingDisplay();
+                    break;
+                    
+                case KEY_SUB: // 减少当前字段值
+                    switch(adjustment_field) {
+                        case 0: MyRTC_Time[3] = (MyRTC_Time[3] + 23) % 24; break;
+                        case 1: MyRTC_Time[4] = (MyRTC_Time[4] + 59) % 60; break;
+                        case 2: MyRTC_Time[5] = (MyRTC_Time[5] + 59) % 60; break;
+                    }
+                    UpdateTimeSettingDisplay();
+                    break;
+                    
+                case KEY_VIEW: // 切换调整字段
+                    adjustment_field = (adjustment_field + 1) % 3;
+                    UpdateTimeSettingDisplay();
+                    break;
+                    
+                case KEY_EXIT: // 保存并退出时间设置
+                    time_set_mode = 0;
+                    MyRTC_SetTime();
+                    DisplayMainScreen();
                     break;
                     
                 default:
@@ -249,15 +306,11 @@ void DisplayHistoryData(uint16_t index)
         // 显示索引指示器
         OLED_ShowChar(1, 14, '<');
         OLED_ShowNum(1, 15, index+1, 2);
-        //OLED_ShowChar(1, 17, '>');
     }
     else
     {
         OLED_ShowString(2, 1, "No Data!");
     }
-    
-    // 显示操作提示
-    //OLED_ShowString(4, 12, "EXIT:KEY4");
 }
 
 // 显示主界面
@@ -267,6 +320,33 @@ void DisplayMainScreen(void)
     OLED_ShowString(1, 1, "Date:XXXX-XX-XX");
     OLED_ShowString(2, 1, "Time:XX:XX:XX");
     OLED_ShowString(3, 1, "Noise:XXXdB");
-    OLED_ShowString(4, 1, "Thrsh:XXX");
+    OLED_ShowString(4, 1, "Thrsh:XXXdB");
     OLED_ShowNum(4, 7, (uint16_t)noise_threshold, 3);
 }
+
+// 更新时间设置显示
+void UpdateTimeSettingDisplay(void)
+{
+    // 清除原有显示
+    OLED_ShowString(2, 1, "Hour:  ");
+    OLED_ShowString(3, 1, "Minute:");
+    OLED_ShowString(4, 1, "Second:");
+    
+    // 清除箭头指示
+    OLED_ShowString(2, 10, " ");
+    OLED_ShowString(3, 10, " ");
+    OLED_ShowString(4, 10, " ");
+    
+    // 显示当前选中字段的箭头
+    switch(adjustment_field) {
+        case 0: OLED_ShowString(2, 10, "<"); break;
+        case 1: OLED_ShowString(3, 10, "<"); break;
+        case 2: OLED_ShowString(4, 10, "<"); break;
+    }
+    
+    // 显示时间数值
+    OLED_ShowNum(2, 8, MyRTC_Time[3], 2);
+    OLED_ShowNum(3, 8, MyRTC_Time[4], 2);
+    OLED_ShowNum(4, 8, MyRTC_Time[5], 2);
+}
+

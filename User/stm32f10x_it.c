@@ -44,12 +44,16 @@
 /*参  数：无                                       */
 /*返回值：无                                       */
  /*-------------------------------------------------*/
- void USART1_IRQHandler(void) {
-     if(USART_GetITStatus(USART1, USART_IT_RXNE) != RESET) {
-
-     }
- }
-
+void USART1_IRQHandler(void) {
+    if (USART_GetITStatus(USART1, USART_IT_RXNE) != RESET) {
+        USART_ClearITPendingBit(USART1, USART_IT_RXNE); // 清除RXNE标志
+        uint8_t data = USART_ReceiveData(USART1);       // 读取数据（必须执行以清除标志）
+    }
+    if (USART_GetFlagStatus(USART1, USART_FLAG_ORE) == SET) {
+        USART_ClearFlag(USART1, USART_FLAG_ORE);       // 清除ORE标志
+        USART_ReceiveData(USART1);                     // 必须读取DR寄存器
+    }
+}
 ///*-------------------------------------------------*/
 ///*函数名：串口2接收中断函数                        */
 ///*参  数：无                                       */
@@ -81,9 +85,9 @@
 /*参  数：无                                       */
 /*返回值：无                                       */
 /*-------------------------------------------------*/
-void USART3_IRQHandler(void)   
-{                      
-}
+//void USART3_IRQHandler(void)   
+//{                      
+//}
 
 /*-------------------------------------------------*/
 /*函数名：定时器4中断服务函数                      */

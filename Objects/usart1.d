@@ -32,3 +32,4 @@
 .\objects\usart1.o: D:\Development_Tool\Keil5\ARM\ARMCC\Bin\..\include\stdio.h
 .\objects\usart1.o: D:\Development_Tool\Keil5\ARM\ARMCC\Bin\..\include\stdarg.h
 .\objects\usart1.o: D:\Development_Tool\Keil5\ARM\ARMCC\Bin\..\include\string.h
+.\objects\usart1.o: System\usart\usart2.h

@@ -620,6 +620,11 @@
               <FileType>1</FileType>
               <FilePath>.\Hardware\iic.c</FilePath>
             </File>
+            <File>
+              <FileName>WH_4G.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Hardware\WH_4G.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

@@ -26,7 +26,7 @@ extern char Usart3_RxBuff[USART3_RXBUFF_SIZE]; //外部声明，其他文件可�
 
 void Usart3_Init(unsigned int);       
 void u3_printf(char*,...) ;          
-void u3_TxData(unsigned char *data);
+void u3_TxData(unsigned char *data, uint16_t length);
 
 #endif
 
